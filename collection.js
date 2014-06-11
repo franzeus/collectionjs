@@ -6,7 +6,9 @@
  *  - Find objects by properties
  *  - Store it to localStorage
  * 
- * TODO: write tests
+ * TODO: 
+ *  [ ] write tests
+ *  [ ] Implement remove method
  * 
  * E.g.
  *  var users = new Collection('users');
