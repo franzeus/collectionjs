@@ -65,10 +65,10 @@ Collection.prototype.insert = function(data) {
 };
 
 /**
- * Removes an item from the collection
+ * Removes items from the collection which match conditions
  * @param {Object} conditions
  */
-Collection.prototype.remove = function(filter) {
+Collection.prototype.remove = function(conditions) {
   // TODO
 };
 
@@ -92,7 +92,7 @@ Collection.prototype.getId = function(chars) {
 };
 
 /**
- * Returns list of objects, filtered by conditions
+ * Returns list of items which match conditions
  * @param {Object} conditions   - The filter conditions as object
                                   E.g. { name: "Foo", timestamp: { $gt: 120302300 } }
  * @param {Boolean} returnIndex - Returning list contains indexes of the found items
