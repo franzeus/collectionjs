@@ -9,6 +9,7 @@
  * TODO: 
  *  [ ] write tests
  *  [ ] Implement remove method
+ *  [ ] Find deep nested properties - like: { prop.propX : value }
  * 
  * E.g.
  *  var users = new Collection('users');
@@ -101,6 +102,7 @@ Collection.prototype.getId = function(chars) {
  */
 Collection.prototype.find = function(conditions, returnIndex) {
   var objects = this.objects;
+  // Possible query operations
   var ops = {
     '$gt' : '>',
     '$lt' : '<',
@@ -119,7 +121,7 @@ Collection.prototype.find = function(conditions, returnIndex) {
       if (typeof conditions[condition] !== 'object') {
         numConditions++;
         if (obj[condition] === conditions[condition]) {
-          add.push(1);
+          add.push(true);
         }
       // Not equal operator
       } else {
@@ -127,19 +129,22 @@ Collection.prototype.find = function(conditions, returnIndex) {
           numConditions++;
           if (compare === "$in") {
             var arr = conditions[condition][compare];
-            for (var x=0; x < arr.length; x++) {
+            for (var x = 0; x < arr.length; x++) {
                 if (obj[condition].indexOf(arr[x]) > -1) {
                     add.push(true);
                 }
             }
           } else {
             if (eval(obj[condition] + '' + ops[compare] + '' + conditions[condition][compare])) {
-              add.push(2);
+              add.push(true);
             }
           }
         }
       }
     }
+
+    // If the number of added conditions is equal the number of asked for conditions,
+    // then all conditions match and we can add it to the results
     if (add.length === numConditions) {
       if (returnIndex) {
         result.push(i);
@@ -166,7 +171,7 @@ Collection.prototype.savePersistent = function() {
 /**
  * Call this to get the collection objects from localStorage
  * @param {String} key
- * @ @return {Array|null}
+ * @return {Array|null}
  */
 Collection.getCollection = function(key) {
   if (!key) { return null; }
