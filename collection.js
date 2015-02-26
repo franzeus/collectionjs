@@ -7,9 +7,9 @@
  *  - Store it to localStorage
  * 
  * TODO: 
- *  [ ] write tests
  *  [ ] Implement remove method
  *  [ ] Find deep nested properties - like: { prop.propX : value }
+ *  [ ] Implement $has - like { prop : { $has: 'value' }} (for array-values)
  * 
  * E.g.
  *  var users = new Collection('users');
@@ -45,6 +45,8 @@ var Collection = function(name, toLocalStorage) {
   this.toLocalStorage = toLocalStorage || false;
   this.STORAGE_KEY = "collection_" + this.name;
   this.objects = [];
+  // Temporary result cache
+  this.result_cache = {};
 };
 
 /**
@@ -62,6 +64,7 @@ Collection.prototype.insert = function(data) {
   if (this.toLocalStorage) {
     this.savePersistent();
   }
+  this.clearCache();
   return id;
 };
 
@@ -74,12 +77,35 @@ Collection.prototype.remove = function(conditions) {
 };
 
 /**
- * Insert item to this collection
- * @param {Object} data - The data to insert
- * @return {String} The id of the new inserted item
+ * Dump all collection entries
  */
 Collection.prototype.clear = function() {
   this.objects = [];
+  this.clearCache();
+};
+
+/**
+ * Add result to cache
+ */
+Collection.prototype.addToCache = function(conditions, value, returnIndex) {
+  var key = this.getCacheKey(conditions, returnIndex);
+  this.result_cache[key] = value;
+};
+
+/**
+ * Clears the cache
+ */
+Collection.prototype.clearCache = function() {
+  this.result_cache = {};
+};
+
+/**
+ * Returns true if key is already in the cache
+ */
+Collection.prototype.inCache = function(conditions, returnIndex) {
+  var key = this.getCacheKey(conditions, returnIndex);
+  var cache = this.result_cache[key];
+  return typeof cache !== 'undefined' ? cache : null;
 };
 
 /**
@@ -102,14 +128,25 @@ Collection.prototype.getId = function(chars) {
  */
 Collection.prototype.find = function(conditions, returnIndex) {
   var objects = this.objects;
+
+  // What does the cache says?!
+  var cache = this.inCache(conditions, returnIndex);
+  if (cache) {
+    return cache;
+  }
+
   // Possible query operations
   var ops = {
     '$gt' : '>',
     '$lt' : '<',
     '$gte' : '>=',
     '$lte' : '<=',
-    '$ne' : '!='
+    '$ne' : '!=='
   };
+  var limit = null;
+  if (conditions && conditions.limit) {
+    limit = conditions.limit;
+  }
   var result = [];
   var len = objects.length;
   for (var i = 0; i < len; i++) {
@@ -117,6 +154,9 @@ Collection.prototype.find = function(conditions, returnIndex) {
     var add = [];
     var numConditions = 0;
     for (var condition in conditions) {
+      if (condition === "limit") {
+        continue;
+      }
       // Equal operator E.g { _id: 2 }
       if (typeof conditions[condition] !== 'object') {
         numConditions++;
@@ -135,7 +175,7 @@ Collection.prototype.find = function(conditions, returnIndex) {
                 }
             }
           } else {
-            if (eval(obj[condition] + '' + ops[compare] + '' + conditions[condition][compare])) {
+            if (obj[condition] && ops[compare] && eval(obj[condition] + '' + ops[compare] + '' + conditions[condition][compare])) {
               add.push(true);
             }
           }
@@ -151,8 +191,14 @@ Collection.prototype.find = function(conditions, returnIndex) {
       } else {
         result.push(obj);
       }
+      if (limit && result.length >= limit) {
+        break;
+      }
     }
   }
+
+  this.addToCache(conditions, result, returnIndex);
+
   return result;
 };
 
@@ -176,4 +222,17 @@ Collection.prototype.savePersistent = function() {
 Collection.getCollection = function(key) {
   if (!key) { return null; }
   return JSON.parse(window.localStorage.getItem(key));
+};
+
+/**
+ * Returns a key for the result cache, based on the conditions object
+ */
+Collection.prototype.getCacheKey = function(conditions, returnIndex) {
+  var key = JSON.stringify(conditions);
+  if (key) {
+    key = key.replace(/{|}|[|]|\"|:|\'|,/g, "");
+  } else {
+    key = "ALL";
+  }
+  return returnIndex ? key + '_i' : key;
 };
